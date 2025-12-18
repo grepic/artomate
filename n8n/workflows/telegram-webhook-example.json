@@ -1,0 +1,69 @@
+{
+  "name": "Artomate - Telegram Bot",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse Telegram command\n// Expected: /create cat japandi wall-art\n\nconst text = $input.item.json.message.text;\n\nif (!text.startsWith('/create')) {\n  return {\n    json: {\n      error: 'Unknown command. Use: /create <theme> <style> <niche>'\n    }\n  };\n}\n\nconst parts = text.split(' ').slice(1);\n\nreturn {\n  json: {\n    theme: parts[0] || 'abstract',\n    style: parts[1] || 'modern',\n    niche: parts[2] || 'wall-art',\n    telegram_chat_id: $input.item.json.message.chat.id\n  }\n};"
+      },
+      "name": "Parse Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8000/api/jobs",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "theme",
+              "value": "={{$json.theme}}"
+            },
+            {
+              "name": "style",
+              "value": "={{$json.style}}"
+            },
+            {
+              "name": "niche",
+              "value": "={{$json.niche}}"
+            }
+          ]
+        }
+      },
+      "name": "Create Job (Artomate API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "={{$node['Parse Command'].json.telegram_chat_id}}",
+        "text": "=✓ Job created: {{$json.id}}\\n\\nTheme: {{$json.theme}}\\nStyle: {{$json.style}}\\nNiche: {{$json.niche}}\\n\\nProcessing will start automatically."
+      },
+      "name": "Reply to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [850, 300]
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [[{ "node": "Parse Command", "type": "main", "index": 0 }]]
+    },
+    "Parse Command": {
+      "main": [[{ "node": "Create Job (Artomate API)", "type": "main", "index": 0 }]]
+    },
+    "Create Job (Artomate API)": {
+      "main": [[{ "node": "Reply to Telegram", "type": "main", "index": 0 }]]
+    }
+  }
+}

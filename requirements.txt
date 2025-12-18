@@ -1,0 +1,58 @@
+# Core
+click>=8.1.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
+
+# Database
+sqlalchemy>=2.0.0
+alembic>=1.12.0
+
+# Image Processing
+Pillow>=10.0.0
+pillow-heif>=0.13.0  # HEIC support
+
+# Image Generation
+openai>=1.0.0
+stability-sdk>=0.8.0
+
+# API Clients
+requests>=2.31.0
+httpx>=0.25.0
+
+# Printify (no official SDK, using requests)
+# Etsy API
+# etsy-python (unofficial)
+
+# CLI
+rich>=13.0.0  # Beautiful terminal output
+typer>=0.9.0  # Alternative to Click (optional)
+
+# Utils
+python-slugify>=8.0.0
+python-dateutil>=2.8.0
+
+# FastAPI (optional, for API mode)
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Export formats
+xmltodict>=0.13.0
+dicttoxml>=1.7.16
+
+# Monitoring/Logging
+loguru>=0.7.0
+
+# Development
+pytest>=7.4.0
+pytest-cov>=4.1.0
+black>=23.0.0
+ruff>=0.1.0
+mypy>=1.7.0
+
+# Optional: Social media
+# instagrapi  # Instagram
+# TikTokApi  # TikTok
+
+# Optional: Trends
+# pytrends  # Google Trends
