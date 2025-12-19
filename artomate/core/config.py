@@ -153,6 +153,223 @@ class Config(BaseSettings):
         (self.assets_dir / "mockups").mkdir(exist_ok=True)
         (self.assets_dir / "printfiles").mkdir(exist_ok=True)
 
+    # ========================================================================
+    # Configuration Validation
+    # ========================================================================
+
+    def validate_for_image_generation(self) -> None:
+        """Validate configuration for image generation.
+
+        Raises:
+            ValueError: If required settings are missing
+        """
+        if self.default_image_provider == "openai":
+            if not self.openai_api_key:
+                raise ValueError(
+                    "OPENAI_API_KEY is required for image generation with OpenAI. "
+                    "Set it in .env file or environment variables."
+                )
+        elif self.default_image_provider == "stability":
+            if not self.stability_api_key:
+                raise ValueError(
+                    "STABILITY_API_KEY is required for image generation with Stability AI. "
+                    "Set it in .env file or environment variables."
+                )
+
+    def validate_for_printify(self) -> None:
+        """Validate configuration for Printify integration.
+
+        Raises:
+            ValueError: If required settings are missing
+        """
+        if not self.printify_api_token:
+            raise ValueError(
+                "PRINTIFY_API_TOKEN is required for Printify integration. "
+                "Get your API token from https://printify.com/app/account/api"
+            )
+        if not self.printify_shop_id:
+            raise ValueError(
+                "PRINTIFY_SHOP_ID is required for Printify integration. "
+                "Find your shop ID in Printify dashboard."
+            )
+
+    def validate_for_etsy(self) -> None:
+        """Validate configuration for Etsy integration.
+
+        Raises:
+            ValueError: If required settings are missing
+        """
+        if not self.etsy_api_key:
+            raise ValueError(
+                "ETSY_API_KEY is required for Etsy integration. "
+                "Create an app at https://www.etsy.com/developers/your-apps"
+            )
+        if not self.etsy_shop_id:
+            raise ValueError(
+                "ETSY_SHOP_ID is required for Etsy integration. "
+                "Find your shop ID in Etsy dashboard."
+            )
+
+    def validate_for_telegram(self) -> None:
+        """Validate configuration for Telegram bot.
+
+        Raises:
+            ValueError: If required settings are missing
+        """
+        if not self.telegram_bot_token:
+            raise ValueError(
+                "TELEGRAM_BOT_TOKEN is required for Telegram integration. "
+                "Create a bot with @BotFather on Telegram."
+            )
+
+    def validate_for_storage(self) -> None:
+        """Validate storage configuration.
+
+        Raises:
+            ValueError: If storage paths are not writable
+        """
+        # Check if directories exist and are writable
+        try:
+            self.ensure_directories()
+        except PermissionError as e:
+            raise ValueError(f"Storage directory is not writable: {e}")
+
+        # Check disk space (at least 1GB free)
+        import shutil
+        stat = shutil.disk_usage(self.assets_dir)
+        free_gb = stat.free / (1024 ** 3)
+        if free_gb < 1.0:
+            raise ValueError(
+                f"Insufficient disk space: {free_gb:.2f}GB free. "
+                "At least 1GB required for asset storage."
+            )
+
+    def validate_for_database(self) -> None:
+        """Validate database configuration.
+
+        Raises:
+            ValueError: If database configuration is invalid
+        """
+        if not self.database_url:
+            raise ValueError("DATABASE_URL is required")
+
+        # For SQLite, ensure directory exists
+        if self.database_url.startswith("sqlite:///"):
+            db_path = Path(self.database_url.replace("sqlite:///", ""))
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def validate_complete_workflow(self) -> None:
+        """Validate all required settings for complete workflow.
+
+        This validates everything needed to run a full content-to-commerce workflow:
+        - Image generation
+        - Printify product creation
+        - Storage
+        - Database
+
+        Raises:
+            ValueError: If any required settings are missing
+        """
+        errors = []
+
+        # Validate each component
+        try:
+            self.validate_for_image_generation()
+        except ValueError as e:
+            errors.append(f"Image generation: {e}")
+
+        try:
+            self.validate_for_printify()
+        except ValueError as e:
+            errors.append(f"Printify: {e}")
+
+        try:
+            self.validate_for_storage()
+        except ValueError as e:
+            errors.append(f"Storage: {e}")
+
+        try:
+            self.validate_for_database()
+        except ValueError as e:
+            errors.append(f"Database: {e}")
+
+        if errors:
+            error_msg = "Configuration validation failed:\n" + "\n".join(
+                f"  - {error}" for error in errors
+            )
+            raise ValueError(error_msg)
+
+    def get_missing_optional_configs(self) -> list[str]:
+        """Get list of optional configurations that are not set.
+
+        Returns:
+            List of missing optional configuration keys
+        """
+        missing = []
+
+        if not self.etsy_api_key:
+            missing.append("ETSY_API_KEY (required for Etsy listings)")
+        if not self.telegram_bot_token:
+            missing.append("TELEGRAM_BOT_TOKEN (required for Telegram bot)")
+        if not self.stability_api_key and self.default_image_provider == "stability":
+            missing.append("STABILITY_API_KEY (alternative to OpenAI)")
+        if not self.aws_access_key_id:
+            missing.append("AWS_ACCESS_KEY_ID (optional for S3 storage)")
+        if not self.n8n_api_key:
+            missing.append("N8N_API_KEY (optional for n8n integration)")
+
+        return missing
+
+    def print_validation_status(self) -> None:
+        """Print configuration validation status to console."""
+        print("\n" + "=" * 60)
+        print("🔧 Configuration Validation Status")
+        print("=" * 60)
+
+        # Check core requirements
+        checks = {
+            "Image Generation": self._check_image_generation,
+            "Printify": self._check_printify,
+            "Storage": self._check_storage,
+            "Database": self._check_database,
+            "Etsy (optional)": self._check_etsy,
+            "Telegram (optional)": self._check_telegram,
+        }
+
+        for name, check_func in checks.items():
+            try:
+                check_func()
+                print(f"✅ {name:<25} OK")
+            except ValueError as e:
+                print(f"❌ {name:<25} MISSING")
+
+        # Show missing optional configs
+        missing = self.get_missing_optional_configs()
+        if missing:
+            print("\n💡 Optional configurations not set:")
+            for item in missing:
+                print(f"   - {item}")
+
+        print("=" * 60 + "\n")
+
+    def _check_image_generation(self):
+        self.validate_for_image_generation()
+
+    def _check_printify(self):
+        self.validate_for_printify()
+
+    def _check_storage(self):
+        self.validate_for_storage()
+
+    def _check_database(self):
+        self.validate_for_database()
+
+    def _check_etsy(self):
+        self.validate_for_etsy()
+
+    def _check_telegram(self):
+        self.validate_for_telegram()
+
 
 # Global config instance
 _config: Optional[Config] = None

@@ -16,6 +16,7 @@ from artomate.db.database import init_db, reset_db
 from artomate.db.models import JobState
 from artomate.workers.image_generator import ImageGenerator
 from artomate.workers.render_engine import RenderEngine
+from artomate.cli.validate import validate_config
 
 # Rich console for beautiful output
 console = Console()
@@ -356,6 +357,14 @@ def _get_state_color(state: JobState) -> str:
         JobState.CANCELLED: "dim",
     }
     return colors.get(state, "white")
+
+
+# ============================================================================
+# Configuration Commands
+# ============================================================================
+
+# Add validate command
+cli.add_command(validate_config, name="validate")
 
 
 # ============================================================================

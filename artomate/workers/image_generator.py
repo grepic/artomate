@@ -12,6 +12,8 @@ from openai import OpenAI
 from artomate.core.config import Config, get_config
 from artomate.db.database import get_db
 from artomate.db.models import Asset, AssetType, Job
+from artomate.utils.retry import RetryConfig
+from artomate.utils.logger import get_logger_with_context
 
 
 class ImageGenerator:
@@ -94,6 +96,7 @@ class ImageGenerator:
 
         return prompt
 
+    @RetryConfig.for_openai()
     def generate_with_dalle(
         self,
         prompt: str,
@@ -147,9 +150,10 @@ class ImageGenerator:
             return results
 
         except Exception as e:
-            logger.error(f"DALL-E 3 generation failed: {e}")
+            logger.error(f"❌ DALL-E 3 generation failed: {e}")
             raise RuntimeError(f"Image generation failed: {e}")
 
+    @RetryConfig.for_network()
     def download_image(self, url: str, save_path: Path) -> dict:
         """Download image from URL and save locally.
 
@@ -191,7 +195,7 @@ class ImageGenerator:
             }
 
         except Exception as e:
-            logger.error(f"Failed to download image from {url}: {e}")
+            logger.error(f"❌ Failed to download image from {url}: {e}")
             raise RuntimeError(f"Image download failed: {e}")
 
     def generate_for_job(

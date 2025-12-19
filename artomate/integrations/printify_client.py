@@ -7,6 +7,7 @@ import requests
 from loguru import logger
 
 from artomate.core.config import Config, get_config
+from artomate.utils.retry import RetryConfig
 
 
 class PrintifyClient:
@@ -43,6 +44,7 @@ class PrintifyClient:
             }
         )
 
+    @RetryConfig.for_printify()
     def _request(
         self,
         method: str,
@@ -80,7 +82,7 @@ class PrintifyClient:
             return response.json() if response.content else {}
 
         except requests.HTTPError as e:
-            logger.error(f"Printify API error: {e.response.status_code} - {e.response.text}")
+            logger.error(f"❌ Printify API error: {e.response.status_code} - {e.response.text}")
             raise
 
     # ========================================================================
