@@ -56,3 +56,6 @@ mypy>=1.7.0
 
 # Optional: Trends
 # pytrends  # Google Trends
+
+# UI
+streamlit>=1.30.0
