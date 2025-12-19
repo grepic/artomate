@@ -5,11 +5,20 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 
 from loguru import logger
-from telegram import Bot
-from telegram.error import TelegramError
 
 from artomate.core.config import Config, get_config
 from artomate.db.models import Job, JobState
+
+# Lazy import to avoid dependency issues
+try:
+    from telegram import Bot
+    from telegram.error import TelegramError
+    TELEGRAM_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Telegram bot library not available: {e}")
+    TELEGRAM_AVAILABLE = False
+    Bot = None
+    TelegramError = Exception
 
 
 class TelegramNotifier:
@@ -38,7 +47,10 @@ class TelegramNotifier:
         self.bot_token = self.config.telegram_bot_token
         self.chat_id = self.config.telegram_chat_id
 
-        if not self.bot_token:
+        if not TELEGRAM_AVAILABLE:
+            logger.warning("Telegram library not available. Notifications disabled.")
+            self.bot = None
+        elif not self.bot_token:
             logger.warning("Telegram bot token not configured. Notifications disabled.")
             self.bot = None
         else:

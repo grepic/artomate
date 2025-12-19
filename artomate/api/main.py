@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
-from artomate.api.routes import analytics, assets, health, jobs, products, telegram, metrics
+from artomate.api.routes import analytics, assets, health, jobs, products, telegram, metrics, upload
 from artomate.core.config import get_config
 from artomate.db.database import init_db
 
@@ -62,6 +62,7 @@ app.add_middleware(
 # Register routes
 app.include_router(health.router, prefix="/health", tags=["Health"])
 app.include_router(metrics.router, prefix="/metrics", tags=["Metrics"])
+app.include_router(upload.router, prefix="/api/upload", tags=["Upload"])
 app.include_router(jobs.router, prefix="/api/jobs", tags=["Jobs"])
 app.include_router(assets.router, prefix="/api/assets", tags=["Assets"])
 app.include_router(products.router, prefix="/api/products", tags=["Products"])
