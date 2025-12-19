@@ -17,6 +17,7 @@ from artomate.db.models import JobState
 from artomate.workers.image_generator import ImageGenerator
 from artomate.workers.render_engine import RenderEngine
 from artomate.cli.validate import validate_config
+from artomate.cli.worker import worker as worker_command
 
 # Rich console for beautiful output
 console = Console()
@@ -365,6 +366,13 @@ def _get_state_color(state: JobState) -> str:
 
 # Add validate command
 cli.add_command(validate_config, name="validate")
+
+# ============================================================================
+# Worker Commands
+# ============================================================================
+
+# Add worker command
+cli.add_command(worker_command, name="worker")
 
 
 # ============================================================================

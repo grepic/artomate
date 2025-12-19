@@ -1,0 +1,159 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database (optional, can use SQLite instead)
+  db:
+    image: postgres:15-alpine
+    container_name: artomate-db
+    environment:
+      POSTGRES_DB: artomate
+      POSTGRES_USER: artomate
+      POSTGRES_PASSWORD: artomate_pass_change_in_production
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U artomate"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - artomate
+
+  # Redis (for job queue)
+  redis:
+    image: redis:7-alpine
+    container_name: artomate-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - artomate
+
+  # API Service
+  api:
+    build: .
+    container_name: artomate-api
+    command: uvicorn artomate.api.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://artomate:artomate_pass_change_in_production@db:5432/artomate
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./data:/app/data
+      - ./exports:/app/exports
+      - ./logs:/app/logs
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/liveness"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - artomate
+    restart: unless-stopped
+
+  # RQ Worker (background job processing)
+  worker:
+    build: .
+    container_name: artomate-worker
+    command: python -m artomate.cli.main worker
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://artomate:artomate_pass_change_in_production@db:5432/artomate
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./data:/app/data
+      - ./exports:/app/exports
+      - ./logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - artomate
+    restart: unless-stopped
+
+  # Streamlit UI
+  ui:
+    build: .
+    container_name: artomate-ui
+    command: streamlit run ui/streamlit_app.py --server.port=8501 --server.address=0.0.0.0
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://artomate:artomate_pass_change_in_production@db:5432/artomate
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./data:/app/data
+      - ./exports:/app/exports
+      - ./ui:/app/ui
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    networks:
+      - artomate
+    restart: unless-stopped
+
+  # Prometheus (optional, for monitoring)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: artomate-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - artomate
+    profiles:
+      - monitoring
+
+  # Grafana (optional, for dashboards)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: artomate-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - artomate
+    profiles:
+      - monitoring
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  artomate:
+    driver: bridge

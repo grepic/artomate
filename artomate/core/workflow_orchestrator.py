@@ -16,6 +16,7 @@ from artomate.workers.etsy_worker import EtsyWorker
 from artomate.workers.video_generator import VideoGenerator
 from artomate.workers.social_media_publisher import SocialMediaPublisher
 from artomate.workers.stock_platforms import StockPlatformWorker
+from artomate.integrations.telegram_notifier import get_telegram_notifier
 
 
 class WorkflowOrchestrator:
@@ -45,6 +46,7 @@ class WorkflowOrchestrator:
         self.video_generator = VideoGenerator(config)
         self.social_publisher = SocialMediaPublisher(config)
         self.stock_worker = StockPlatformWorker(config)
+        self.telegram_notifier = get_telegram_notifier()
 
     def _update_progress(self, message: str, progress: float):
         """Update progress."""
@@ -310,6 +312,13 @@ class WorkflowOrchestrator:
 
             logger.info(f"✓ Workflow complete for job {job_id}")
 
+            # Send Telegram notification
+            if self.telegram_notifier.is_available():
+                try:
+                    self.telegram_notifier.notify_job_complete_sync(job, results)
+                except Exception as notif_error:
+                    logger.warning(f"Failed to send Telegram notification: {notif_error}")
+
             return results
 
         except Exception as e:
@@ -326,5 +335,12 @@ class WorkflowOrchestrator:
                 )
             except:
                 pass
+
+            # Send Telegram notification
+            if self.telegram_notifier.is_available():
+                try:
+                    self.telegram_notifier.notify_job_failed_sync(job, str(e))
+                except Exception as notif_error:
+                    logger.warning(f"Failed to send Telegram notification: {notif_error}")
 
             raise RuntimeError(f"Workflow failed: {e}")
