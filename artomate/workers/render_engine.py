@@ -97,6 +97,8 @@ class RenderEngine:
         mode: CropMode = "cover",
         dpi: int = 300,
         background_color: str = "white",
+        transparent_background: bool = False,
+        remove_white_bg: bool = False,
     ) -> Image.Image:
         """Render image to target dimensions.
 
@@ -106,7 +108,9 @@ class RenderEngine:
             target_height: Target height in pixels
             mode: Crop mode
             dpi: DPI for print
-            background_color: Background color for contain mode
+            background_color: Background color for contain mode (if not transparent)
+            transparent_background: Create PNG with transparent background
+            remove_white_bg: Remove white background from source (for AI images)
 
         Returns:
             Rendered PIL Image
@@ -123,14 +127,23 @@ class RenderEngine:
         try:
             # Open source image
             with Image.open(source_path) as img:
-                # Convert to RGB if needed
-                if img.mode not in ("RGB", "RGBA"):
-                    img = img.convert("RGB")
+                # Convert to RGBA if transparent needed, otherwise RGB
+                if transparent_background:
+                    if img.mode != "RGBA":
+                        img = img.convert("RGBA")
+                else:
+                    if img.mode not in ("RGB", "RGBA"):
+                        img = img.convert("RGB")
+
+                # Remove white background if requested (for AI-generated images)
+                if remove_white_bg and transparent_background:
+                    img = self._remove_white_background(img)
 
                 source_width, source_height = img.size
 
                 logger.debug(
-                    f"Rendering {source_width}x{source_height} → {target_width}x{target_height} ({mode})"
+                    f"Rendering {source_width}x{source_height} → {target_width}x{target_height} "
+                    f"({mode}, transparent={transparent_background})"
                 )
 
                 # Calculate dimensions
@@ -143,13 +156,20 @@ class RenderEngine:
 
                 # Create target canvas
                 if mode == "contain":
-                    # Create canvas with background color
-                    canvas = Image.new("RGB", (target_width, target_height), background_color)
+                    # Create canvas with background color or transparent
+                    if transparent_background:
+                        canvas = Image.new("RGBA", (target_width, target_height), (0, 0, 0, 0))
+                    else:
+                        canvas = Image.new("RGB", (target_width, target_height), background_color)
 
                     # Paste resized image centered
                     paste_x = (target_width - new_width) // 2
                     paste_y = (target_height - new_height) // 2
-                    canvas.paste(resized, (paste_x, paste_y))
+
+                    if transparent_background and resized.mode == "RGBA":
+                        canvas.paste(resized, (paste_x, paste_y), resized)
+                    else:
+                        canvas.paste(resized, (paste_x, paste_y))
 
                     result = canvas
 
@@ -175,6 +195,38 @@ class RenderEngine:
             logger.error(f"Failed to render image: {e}")
             raise ValueError(f"Image rendering failed: {e}")
 
+    def _remove_white_background(self, img: Image.Image) -> Image.Image:
+        """Remove white background from image and make transparent.
+
+        Args:
+            img: PIL Image (RGBA)
+
+        Returns:
+            Image with transparent background
+
+        Note:
+            Useful for AI-generated images that often have white backgrounds
+        """
+        if img.mode != "RGBA":
+            img = img.convert("RGBA")
+
+        # Get pixel data
+        data = img.getdata()
+
+        new_data = []
+        for item in data:
+            # Check if pixel is close to white
+            # Threshold: RGB values all above 240
+            if item[0] > 240 and item[1] > 240 and item[2] > 240:
+                # Make transparent (alpha = 0)
+                new_data.append((255, 255, 255, 0))
+            else:
+                # Keep original
+                new_data.append(item)
+
+        img.putdata(new_data)
+        return img
+
     def create_print_file(
         self,
         asset: Asset,
@@ -184,6 +236,8 @@ class RenderEngine:
         dpi: int = 300,
         printify_blueprint_id: Optional[int] = None,
         printify_provider_id: Optional[int] = None,
+        transparent_background: bool = False,
+        remove_white_bg: bool = False,
     ) -> PrintFile:
         """Create a print-ready file from an asset.
 
@@ -195,6 +249,8 @@ class RenderEngine:
             dpi: DPI for print
             printify_blueprint_id: Printify blueprint ID
             printify_provider_id: Printify provider ID
+            transparent_background: Create PNG with transparent background (for apparel)
+            remove_white_bg: Remove white background from AI-generated images
 
         Returns:
             Created PrintFile instance
@@ -210,11 +266,14 @@ class RenderEngine:
             target_height=target_height,
             mode=crop_mode,
             dpi=dpi,
+            transparent_background=transparent_background,
+            remove_white_bg=remove_white_bg,
         )
 
         # Create filename
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        filename = f"printfile_{asset.job_id}_{timestamp}_{target_width}x{target_height}.png"
+        suffix = "_transparent" if transparent_background else ""
+        filename = f"printfile_{asset.job_id}_{timestamp}_{target_width}x{target_height}{suffix}.png"
         save_path = self.config.assets_dir / "printfiles" / filename
 
         # Ensure directory exists
@@ -227,6 +286,9 @@ class RenderEngine:
 
         logger.info(f"✓ Saved print file: {save_path} ({file_size:,} bytes)")
 
+        # Determine color mode
+        color_mode = "RGBA" if transparent_background else "RGB"
+
         # Create PrintFile record
         print_file = PrintFile(
             asset_id=asset.id,
@@ -234,7 +296,7 @@ class RenderEngine:
             target_width=target_width,
             target_height=target_height,
             dpi=dpi,
-            color_mode="RGB",
+            color_mode=color_mode,
             crop_mode=crop_mode,
             storage_path=str(save_path),
             file_size_bytes=file_size,
@@ -243,6 +305,8 @@ class RenderEngine:
             print_area_data={
                 "source_asset_id": asset.id,
                 "rendered_at": datetime.utcnow().isoformat(),
+                "transparent_background": transparent_background,
+                "remove_white_bg": remove_white_bg,
             },
         )
 

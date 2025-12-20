@@ -9,55 +9,14 @@ from artomate.db.database import get_db
 from artomate.db.models import Asset, Job, PrintFile, Product
 from artomate.integrations.printify_client import PrintifyClient
 from artomate.workers.render_engine import RenderEngine
+from artomate.workers.printify_product_catalog import PRINTIFY_PRODUCTS, get_all_product_ids
 
 
 class PrintifyWorker:
     """Creates and manages Printify products."""
 
-    # Common blueprint specifications
-    BLUEPRINT_SPECS = {
-        # T-Shirts
-        "tshirt": {
-            "blueprint_id": 3,
-            "provider_id": 99,  # Printful
-            "print_area": {"width": 4500, "height": 5400},
-            "name": "Unisex Heavy Cotton Tee",
-        },
-        # Posters
-        "poster_12x18": {
-            "blueprint_id": 6,
-            "provider_id": 99,
-            "print_area": {"width": 3000, "height": 4500},
-            "name": "Poster 12x18",
-        },
-        "poster_18x24": {
-            "blueprint_id": 6,
-            "provider_id": 99,
-            "print_area": {"width": 4500, "height": 6000},
-            "name": "Poster 18x24",
-        },
-        # Mugs
-        "mug": {
-            "blueprint_id": 380,
-            "provider_id": 99,
-            "print_area": {"width": 2475, "height": 1155},
-            "name": "White Glossy Mug 11oz",
-        },
-        # Hoodies
-        "hoodie": {
-            "blueprint_id": 77,
-            "provider_id": 99,
-            "print_area": {"width": 4500, "height": 5400},
-            "name": "Unisex Heavy Blend Hoodie",
-        },
-        # Canvas
-        "canvas_16x20": {
-            "blueprint_id": 184,
-            "provider_id": 99,
-            "print_area": {"width": 4800, "height": 6000},
-            "name": "Canvas 16x20",
-        },
-    }
+    # Use comprehensive product catalog
+    BLUEPRINT_SPECS = PRINTIFY_PRODUCTS
 
     def __init__(self, config: Optional[Config] = None):
         """Initialize Printify worker.
@@ -162,14 +121,34 @@ class PrintifyWorker:
 
         logger.info(f"Creating {product_type} for job {job.id}")
 
+        # Determine if transparent background needed
+        needs_transparent = spec["coverage_type"] == "transparent"
+
+        # Determine crop mode based on coverage type
+        if spec["coverage_type"] == "full":
+            crop_mode = "cover"  # Fill entire area
+        elif spec["coverage_type"] == "centered":
+            crop_mode = "contain"  # Center design with borders
+        else:  # transparent
+            crop_mode = "contain"  # Center design on transparent
+
+        logger.info(
+            f"Product specs: {spec['name']} - "
+            f"{spec['print_area']['width']}x{spec['print_area']['height']}px, "
+            f"{spec['coverage_type']}, transparent={needs_transparent}"
+        )
+
         # Step 1: Render print file for this product
         print_file = self.renderer.create_print_file(
             asset=asset,
             target_width=spec["print_area"]["width"],
             target_height=spec["print_area"]["height"],
-            crop_mode="cover",
+            crop_mode=crop_mode,
+            dpi=spec["dpi"],
             printify_blueprint_id=spec["blueprint_id"],
             printify_provider_id=spec["provider_id"],
+            transparent_background=needs_transparent,
+            remove_white_bg=needs_transparent,  # Auto-remove white BG for transparent products
         )
 
         # Step 2: Upload image to Printify
