@@ -43,6 +43,7 @@ ENV/
 data/
 exports/
 logs/
+test_output/
 *.db
 *.sqlite
 *.sqlite3
