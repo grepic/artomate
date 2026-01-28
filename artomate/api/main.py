@@ -10,6 +10,7 @@ from loguru import logger
 from artomate.api.routes import analytics, assets, health, jobs, products, telegram, metrics, upload, viral
 from artomate.core.config import get_config
 from artomate.db.database import init_db
+from artomate.utils.init import initialize_system, shutdown_system
 
 
 @asynccontextmanager
@@ -24,9 +25,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     # Startup
     logger.info("Starting Artomate API...")
-    config = get_config()
-    config.ensure_directories()
-
+    
+    # Initialize all system components
+    try:
+        initialize_system()
+        logger.info("✅ System components initialized")
+    except Exception as e:
+        logger.error(f"System initialization failed: {e}")
+        raise
+    
     # Ensure database is initialized
     try:
         init_db()
@@ -38,6 +45,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Shutdown
     logger.info("Shutting down Artomate API...")
+    shutdown_system()
 
 
 # Create FastAPI app

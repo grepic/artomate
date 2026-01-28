@@ -8,6 +8,7 @@ from loguru import logger
 
 from artomate.core.config import Config, get_config
 from artomate.utils.retry import RetryConfig
+from artomate.utils.circuit_breaker import printify_breaker, CircuitBreakerError
 
 
 class PrintifyClient:
@@ -44,6 +45,7 @@ class PrintifyClient:
             }
         )
 
+    @printify_breaker
     @RetryConfig.for_printify()
     def _request(
         self,
@@ -149,6 +151,52 @@ class PrintifyClient:
             "GET",
             f"/catalog/blueprints/{blueprint_id}/print_providers/{print_provider_id}/variants.json",
         )
+
+    def get_blueprint_mockup_url(
+        self,
+        blueprint_id: int,
+        print_provider_id: Optional[int] = None,
+    ) -> Optional[str]:
+        """Get mockup preview image URL for a blueprint.
+
+        Args:
+            blueprint_id: Blueprint ID
+            print_provider_id: Optional provider ID (uses first provider if not specified)
+
+        Returns:
+            URL to mockup image or None if not available
+        """
+        try:
+            blueprint = self.get_blueprint(blueprint_id)
+            
+            # Get image from blueprint data
+            if "images" in blueprint and blueprint["images"]:
+                # Return first image URL
+                images = blueprint["images"]
+                if isinstance(images, list) and len(images) > 0:
+                    # Images can be strings or dicts
+                    first_image = images[0]
+                    if isinstance(first_image, str):
+                        return first_image
+                    elif isinstance(first_image, dict):
+                        return first_image.get("src")
+                elif isinstance(images, dict):
+                    return images.get("src")
+            
+            # Alternative: check providers for mockup
+            if print_provider_id:
+                variants = self.get_blueprint_variants(blueprint_id, print_provider_id)
+                if "variants" in variants and variants["variants"]:
+                    first_variant = variants["variants"][0]
+                    if "image" in first_variant:
+                        return first_variant["image"]
+            
+            logger.debug(f"No mockup image found for blueprint {blueprint_id}")
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Failed to get mockup for blueprint {blueprint_id}: {e}")
+            return None
 
     # ========================================================================
     # Images

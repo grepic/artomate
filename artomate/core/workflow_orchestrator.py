@@ -17,6 +17,8 @@ from artomate.workers.video_generator import VideoGenerator
 from artomate.workers.social_media_publisher import SocialMediaPublisher
 from artomate.workers.stock_platforms import StockPlatformWorker
 from artomate.integrations.telegram_notifier import get_telegram_notifier
+from artomate.utils.logger import get_logger_with_context, set_correlation_id, clear_correlation_id
+from artomate.utils.circuit_breaker import CircuitBreakerError
 
 
 class WorkflowOrchestrator:
@@ -96,6 +98,15 @@ class WorkflowOrchestrator:
             "stock_submissions": [],
             "errors": [],
         }
+
+        # Set correlation ID for tracking this workflow across all logs
+        correlation_id = set_correlation_id()
+        log = get_logger_with_context(job_id=job_id, correlation_id=correlation_id)
+        
+        log.info(f"Starting complete workflow for job {job_id}", extra={
+            "workflow_options": options,
+            "correlation_id": correlation_id,
+        })
 
         try:
             # Get job
@@ -321,8 +332,24 @@ class WorkflowOrchestrator:
 
             return results
 
+        except CircuitBreakerError as e:
+            log.error(f"Circuit breaker OPEN - service unavailable: {e}", exc_info=True)
+            
+            results["status"] = "failed"
+            results["error"] = f"Service unavailable (circuit breaker open): {str(e)}"
+            results["failed_at"] = datetime.utcnow().isoformat()
+            
+            try:
+                self.job_manager.update_job_state(
+                    job, JobState.FAILED, error=str(e)
+                )
+            except:
+                pass
+            
+            raise
+
         except Exception as e:
-            logger.error(f"Workflow failed for job {job_id}: {e}")
+            log.error(f"Workflow failed for job {job_id}: {e}", exc_info=True)
 
             results["status"] = "failed"
             results["error"] = str(e)
@@ -336,7 +363,11 @@ class WorkflowOrchestrator:
             except:
                 pass
 
-            # Send Telegram notification
+            raise
+        
+        finally:
+            # Clear correlation ID after workflow completes
+            clear_correlation_id()
             if self.telegram_notifier.is_available():
                 try:
                     self.telegram_notifier.notify_job_failed_sync(job, str(e))

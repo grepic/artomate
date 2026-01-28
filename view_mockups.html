@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Printify Mockups - Náhled produktů</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+            color: rgba(255,255,255,0.9);
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 1.2em;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+        .category {
+            margin-bottom: 50px;
+        }
+        .category-title {
+            color: white;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid rgba(255,255,255,0.3);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        .product-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+        .product-image {
+            width: 100%;
+            height: 280px;
+            object-fit: contain;
+            background: #f8f9fa;
+            padding: 15px;
+        }
+        .product-info {
+            padding: 15px;
+            background: linear-gradient(to bottom, #f8f9fa, white);
+        }
+        .product-name {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        .product-size {
+            font-size: 0.85em;
+            color: #7f8c8d;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            background: rgba(255,255,255,0.2);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 40px;
+        }
+        .stat {
+            text-align: center;
+            color: white;
+        }
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            display: block;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .stat-label {
+            font-size: 1em;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+        .lightbox {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 1000;
+            padding: 40px;
+        }
+        .lightbox.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .lightbox-content {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+        }
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+            color: white;
+            font-size: 40px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Printify Mockups</h1>
+        <p class="subtitle">47 produktů připravených k tisku vašich designů</p>
+        
+        <div class="stats">
+            <div class="stat">
+                <span class="stat-number">15</span>
+                <span class="stat-label">Oblečení</span>
+            </div>
+            <div class="stat">
+                <span class="stat-number">17</span>
+                <span class="stat-label">Domácí dekorace</span>
+            </div>
+            <div class="stat">
+                <span class="stat-number">9</span>
+                <span class="stat-label">Nástěnné umění</span>
+            </div>
+            <div class="stat">
+                <span class="stat-number">6</span>
+                <span class="stat-label">Doplňky</span>
+            </div>
+        </div>
+
+        <!-- Oblečení -->
+        <div class="category">
+            <h2 class="category-title">👕 Oblečení</h2>
+            <div class="grid">
+                <div class="product-card" onclick="showImage('data/mockups/tshirt_unisex.png')">
+                    <img src="data/mockups/tshirt_unisex.png" alt="Unisex tričko" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Unisex tričko</div>
+                        <div class="product-size">Základní bestseller</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/tshirt_premium.png')">
+                    <img src="data/mockups/tshirt_premium.png" alt="Premium tričko" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Premium tričko</div>
+                        <div class="product-size">Vyšší kvalita</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/tshirt_womens.png')">
+                    <img src="data/mockups/tshirt_womens.png" alt="Dámské tričko" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Dámské tričko</div>
+                        <div class="product-size">Ženský střih</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/tshirt_kids.png')">
+                    <img src="data/mockups/tshirt_kids.png" alt="Dětské tričko" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Dětské tričko</div>
+                        <div class="product-size">Pro děti</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/tank_top.png')">
+                    <img src="data/mockups/tank_top.png" alt="Tílko" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Tílko</div>
+                        <div class="product-size">Letní oblečení</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/long_sleeve.png')">
+                    <img src="data/mockups/long_sleeve.png" alt="Dlouhý rukáv" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Dlouhý rukáv</div>
+                        <div class="product-size">Celoroční</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/hoodie_unisex.png')">
+                    <img src="data/mockups/hoodie_unisex.png" alt="Mikina" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Unisex mikina</div>
+                        <div class="product-size">S kapucí</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/hoodie_zip.png')">
+                    <img src="data/mockups/hoodie_zip.png" alt="Mikina na zip" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Mikina na zip</div>
+                        <div class="product-size">S kapucí a zipem</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/sweatshirt.png')">
+                    <img src="data/mockups/sweatshirt.png" alt="Svetr" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Svetr</div>
+                        <div class="product-size">Bez kapuce</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Domácí dekorace -->
+        <div class="category">
+            <h2 class="category-title">🏠 Domácí dekorace</h2>
+            <div class="grid">
+                <div class="product-card" onclick="showImage('data/mockups/throw_pillow_14x14.png')">
+                    <img src="data/mockups/throw_pillow_14x14.png" alt="Polštář 14x14" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Polštář</div>
+                        <div class="product-size">14" × 14"</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/throw_pillow_16x16.png')">
+                    <img src="data/mockups/throw_pillow_16x16.png" alt="Polštář 16x16" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Polštář</div>
+                        <div class="product-size">16" × 16"</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/throw_pillow_18x18.png')">
+                    <img src="data/mockups/throw_pillow_18x18.png" alt="Polštář 18x18" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Polštář</div>
+                        <div class="product-size">18" × 18"</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/lumbar_pillow.png')">
+                    <img src="data/mockups/lumbar_pillow.png" alt="Bederní polštář" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Bederní polštář</div>
+                        <div class="product-size">Obdélníkový</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/blanket_fleece.png')">
+                    <img src="data/mockups/blanket_fleece.png" alt="Fleecová deka" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Fleecová deka</div>
+                        <div class="product-size">Malá</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/blanket_medium.png')">
+                    <img src="data/mockups/blanket_medium.png" alt="Deka střední" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Deka</div>
+                        <div class="product-size">Střední</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/blanket_large.png')">
+                    <img src="data/mockups/blanket_large.png" alt="Deka velká" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Deka</div>
+                        <div class="product-size">Velká</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/shower_curtain.png')">
+                    <img src="data/mockups/shower_curtain.png" alt="Sprchový závěs" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Sprchový závěs</div>
+                        <div class="product-size">Pro koupelnu</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/bath_towel.png')">
+                    <img src="data/mockups/bath_towel.png" alt="Koupelnový ručník" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Koupelnový ručník</div>
+                        <div class="product-size">Velký</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/hand_towel.png')">
+                    <img src="data/mockups/hand_towel.png" alt="Ručník na ruce" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Ručník na ruce</div>
+                        <div class="product-size">Malý</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/rug_small.png')">
+                    <img src="data/mockups/rug_small.png" alt="Koberec malý" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Koberec</div>
+                        <div class="product-size">Malý</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/rug_medium.png')">
+                    <img src="data/mockups/rug_medium.png" alt="Koberec střední" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Koberec</div>
+                        <div class="product-size">Střední</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/doormat.png')">
+                    <img src="data/mockups/doormat.png" alt="Rohožka" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Rohožka</div>
+                        <div class="product-size">Před dveře</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/duvet_cover_twin.png')">
+                    <img src="data/mockups/duvet_cover_twin.png" alt="Povlečení Twin" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Povlečení Twin</div>
+                        <div class="product-size">Malé lůžko</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/duvet_cover_queen.png')">
+                    <img src="data/mockups/duvet_cover_queen.png" alt="Povlečení Queen" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Povlečení Queen</div>
+                        <div class="product-size">Střední lůžko</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/duvet_cover_king.png')">
+                    <img src="data/mockups/duvet_cover_king.png" alt="Povlečení King" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Povlečení King</div>
+                        <div class="product-size">Velké lůžko</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Nástěnné umění -->
+        <div class="category">
+            <h2 class="category-title">🖼️ Nástěnné umění</h2>
+            <div class="grid">
+                <div class="product-card" onclick="showImage('data/mockups/poster_12x18.png')">
+                    <img src="data/mockups/poster_12x18.png" alt="Plakát 12x18" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Plakát</div>
+                        <div class="product-size">12" × 18"</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/poster_18x24.png')">
+                    <img src="data/mockups/poster_18x24.png" alt="Plakát 18x24" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Plakát</div>
+                        <div class="product-size">18" × 24"</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/poster_24x36.png')">
+                    <img src="data/mockups/poster_24x36.png" alt="Plakát 24x36" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Plakát</div>
+                        <div class="product-size">24" × 36"</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/canvas_8x10.png')">
+                    <img src="data/mockups/canvas_8x10.png" alt="Plátno 8x10" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Plátno</div>
+                        <div class="product-size">8" × 10"</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/canvas_12x16.png')">
+                    <img src="data/mockups/canvas_12x16.png" alt="Plátno 12x16" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Plátno</div>
+                        <div class="product-size">12" × 16"</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/canvas_16x20.png')">
+                    <img src="data/mockups/canvas_16x20.png" alt="Plátno 16x20" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Plátno</div>
+                        <div class="product-size">16" × 20"</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/canvas_18x24.png')">
+                    <img src="data/mockups/canvas_18x24.png" alt="Plátno 18x24" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Plátno</div>
+                        <div class="product-size">18" × 24"</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/canvas_24x36.png')">
+                    <img src="data/mockups/canvas_24x36.png" alt="Plátno 24x36" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Plátno</div>
+                        <div class="product-size">24" × 36"</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/framed_print_12x16.png')">
+                    <img src="data/mockups/framed_print_12x16.png" alt="Rámovaný tisk 12x16" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Rámovaný tisk</div>
+                        <div class="product-size">12" × 16"</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/framed_print_16x20.png')">
+                    <img src="data/mockups/framed_print_16x20.png" alt="Rámovaný tisk 16x20" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Rámovaný tisk</div>
+                        <div class="product-size">16" × 20"</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Doplňky -->
+        <div class="category">
+            <h2 class="category-title">☕ Doplňky & Gadgety</h2>
+            <div class="grid">
+                <div class="product-card" onclick="showImage('data/mockups/mug_11oz.png')">
+                    <img src="data/mockups/mug_11oz.png" alt="Hrnek 11oz" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Hrnek</div>
+                        <div class="product-size">11 oz</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/mug_15oz.png')">
+                    <img src="data/mockups/mug_15oz.png" alt="Hrnek 15oz" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Hrnek</div>
+                        <div class="product-size">15 oz</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/travel_mug.png')">
+                    <img src="data/mockups/travel_mug.png" alt="Cestovní hrnek" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Cestovní hrnek</div>
+                        <div class="product-size">Termo</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/water_bottle.png')">
+                    <img src="data/mockups/water_bottle.png" alt="Láhev na vodu" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Láhev na vodu</div>
+                        <div class="product-size">Sportovní</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/wine_tumbler.png')">
+                    <img src="data/mockups/wine_tumbler.png" alt="Termo pohár na víno" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Termo pohár na víno</div>
+                        <div class="product-size">12 oz</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/phone_case_iphone.png')">
+                    <img src="data/mockups/phone_case_iphone.png" alt="Obal iPhone" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Obal na iPhone</div>
+                        <div class="product-size">Různé modely</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/phone_case_samsung.png')">
+                    <img src="data/mockups/phone_case_samsung.png" alt="Obal Samsung" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Obal na Samsung</div>
+                        <div class="product-size">Různé modely</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/tote_bag.png')">
+                    <img src="data/mockups/tote_bag.png" alt="Taška" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Taška</div>
+                        <div class="product-size">Standardní</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/tote_bag_large.png')">
+                    <img src="data/mockups/tote_bag_large.png" alt="Taška velká" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Taška velká</div>
+                        <div class="product-size">XL</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/sticker_3x3.png')">
+                    <img src="data/mockups/sticker_3x3.png" alt="Nálepka 3x3" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Nálepka</div>
+                        <div class="product-size">3" × 3"</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/sticker_4x4.png')">
+                    <img src="data/mockups/sticker_4x4.png" alt="Nálepka 4x4" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Nálepka</div>
+                        <div class="product-size">4" × 4"</div>
+                    </div>
+                </div>
+                <div class="product-card" onclick="showImage('data/mockups/notebook_spiral.png')">
+                    <img src="data/mockups/notebook_spiral.png" alt="Spirálový notes" class="product-image">
+                    <div class="product-info">
+                        <div class="product-name">Spirálový notes</div>
+                        <div class="product-size">A5</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+        <span class="lightbox-close">&times;</span>
+        <img src="" alt="Náhled" class="lightbox-content" id="lightbox-img">
+    </div>
+
+    <script>
+        function showImage(src) {
+            document.getElementById('lightbox-img').src = src;
+            document.getElementById('lightbox').classList.add('active');
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('active');
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeLightbox();
+            }
+        });
+    </script>
+</body>
+</html>

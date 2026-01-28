@@ -10,7 +10,7 @@ if ! command -v streamlit &> /dev/null; then
 fi
 
 # Start Streamlit
-streamlit run ui/streamlit_app.py \
+python -m streamlit run ui/streamlit_app.py \
     --server.port 8501 \
     --server.address 0.0.0.0 \
     --theme.primaryColor "#1f77b4" \

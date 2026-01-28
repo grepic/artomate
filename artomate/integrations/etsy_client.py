@@ -6,6 +6,8 @@ import requests
 from loguru import logger
 
 from artomate.core.config import Config, get_config
+from artomate.utils.retry import RetryConfig
+from artomate.utils.circuit_breaker import etsy_breaker, CircuitBreakerError
 
 
 class EtsyClient:
@@ -49,6 +51,8 @@ class EtsyClient:
         if self.access_token:
             self.session.headers.update({"Authorization": f"Bearer {self.access_token}"})
 
+    @etsy_breaker
+    @RetryConfig.for_etsy()
     def _request(
         self,
         method: str,

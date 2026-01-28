@@ -361,6 +361,338 @@ def _get_state_color(state: JobState) -> str:
 
 
 # ============================================================================
+# Interactive Commands
+# ============================================================================
+
+
+@cli.command()
+@click.argument("images_dir", type=click.Path(exists=True))
+def crop_products(images_dir: str):
+    """Interactive product cropping - step by step verification.
+    
+    Crop images for each product type with manual verification at each step.
+    Perfect for testing and ensuring quality before uploading to Printify.
+    
+    Example:
+        artomate crop-products data/assets/images
+    """
+    from artomate.cli.crop_interactive import run_crop_workflow
+    
+    run_crop_workflow(images_dir)
+
+
+@cli.command()
+@click.option("--use-ai/--no-ai", default=True, help="Use AI (GPT) to generate month-specific prompts")
+def calendar(use_ai: bool):
+    """Create calendar with interactive prompts (step-by-step conversation)."""
+    from artomate.core.conversation_engine import ConversationEngine
+
+    console.print("\n🎨 [ARTOMATE CALENDAR GENERATOR]", style="bold cyan")
+    console.print("Interactive step-by-step conversation\n", style="cyan")
+
+    if use_ai:
+        console.print("✨ AI Mode: GPT will generate unique prompts for each month\n", style="green")
+    else:
+        console.print("📝 Simple Mode: Basic prompt generation\n", style="yellow")
+
+    engine = ConversationEngine()
+    reply, state = engine.start()
+
+    # First message
+    console.print(reply + "\n", style="yellow")
+
+    try:
+        while True:
+            user_input = input("📝 You: ").strip()
+
+            if not user_input:
+                continue
+
+            if user_input.lower() in ["exit", "quit", "done"]:
+                console.print("\n👋 Goodbye!", style="green")
+                break
+
+            reply, state = engine.process_input(user_input)
+
+            if state.stage.value == "generate":
+                console.print(f"\n✨ {reply}\n", style="green bold")
+
+                # Generate prompts (with or without AI)
+                prompts = engine.get_prompts(use_ai=use_ai)
+
+                console.print("\n📋 Generated Prompts:\n", style="cyan bold")
+
+                for prompt_data in prompts:
+                    console.print(
+                        f"\n[{prompt_data['month']}]",
+                        style="bold cyan"
+                    )
+                    if "animals" in prompt_data:
+                        console.print(f"  Animals: {prompt_data['animals']}")
+                    if "habitat" in prompt_data:
+                        console.print(f"  Habitat: {prompt_data['habitat']}", style="dim")
+                    if "season" in prompt_data:
+                        console.print(f"  Season: {prompt_data['season']}", style="dim")
+                    if "style" in prompt_data:
+                        console.print(f"  Style: {prompt_data['style']}")
+                    if "theme" in prompt_data:
+                        console.print(f"  Theme: {prompt_data['theme']}")
+                    console.print(f"  Prompt:\n    {prompt_data['prompt']}\n")
+
+                # Save to JSON
+                import json
+                from datetime import datetime
+
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"calendar_prompts_{timestamp}.json"
+
+                with open(filename, "w", encoding="utf-8") as f:
+                    json.dump(prompts, f, indent=2, ensure_ascii=False)
+
+                console.print(f"✓ Saved prompts to: {filename}\n", style="green")
+
+                # Ask if wants to generate images
+                console.print(
+                    "\n💡 Next steps:",
+                    style="cyan bold"
+                )
+                console.print("  1. Review the prompts above")
+                console.print("  2. Use these prompts in Midjourney to generate images")
+                console.print(f"  3. Or set OPENAI_API_KEY in .env for DALL-E generation")
+                console.print(f"  4. Or manually create jobs with: artomate create --theme 'X' --style 'Y'\n")
+
+                break
+            else:
+                console.print(f"\n🤖 Assistant: {reply}\n", style="cyan")
+
+    except KeyboardInterrupt:
+        console.print("\n\n⏸️  Interrupted by user", style="yellow")
+        sys.exit(0)
+    except Exception as e:
+        console.print(f"\n❌ Error: {e}", style="red")
+        logger.exception("Error in calendar interactive mode")
+        sys.exit(1)
+
+
+@cli.command()
+def list_starter_products():
+    """List available starter products (Wall Art - easiest to start with)."""
+    from artomate.workers.starter_products import list_products
+    
+    console.print("\n🖼️  [STARTER PRODUCTS - WALL ART]", style="bold cyan")
+    console.print("These are the easiest products to start with (full coverage, no transparency)\n", style="dim")
+    
+    products = list_products()
+    
+    table = Table()
+    table.add_column("Product ID", style="cyan")
+    table.add_column("Name", style="white")
+    table.add_column("Sizes", style="yellow")
+    
+    for product_id, name, size_count in products:
+        table.add_row(product_id, name, str(size_count))
+    
+    console.print(table)
+    
+    console.print("\n💡 Next step:", style="green bold")
+    console.print("  artomate crop-for-product <image_file> --product <product_id>\n")
+
+
+@cli.command()
+@click.argument("image_path", type=click.Path(exists=True))
+@click.option("--product", "-p", required=True, help="Product ID (use 'list-starter-products' to see options)")
+@click.option("--output-dir", "-o", default="crops_test", help="Output directory")
+@click.option("--open-preview", is_flag=True, help="Open preview images after generation")
+def crop_for_product(image_path: str, product: str, output_dir: str, open_preview: bool):
+    """Crop a single image for all sizes of a product (interactive preview).
+    
+    This command will:
+    1. Load the image
+    2. Crop it for ALL sizes of the selected product
+    3. Save crops to output directory
+    4. Show preview of what was generated
+    5. Wait for your confirmation
+    
+    Example:
+        artomate crop-for-product january.png --product poster_matte_vertical
+    """
+    from artomate.workers.starter_products import get_product
+    from artomate.workers.render_engine import RenderEngine
+    from pathlib import Path
+    from PIL import Image
+    
+    console.print(f"\n📐 [CROP FOR PRODUCT]\n", style="bold cyan")
+    
+    try:
+        product_spec = get_product(product)
+    except KeyError:
+        console.print(f"❌ Unknown product: {product}", style="red")
+        console.print("Use 'artomate list-starter-products' to see available products\n", style="yellow")
+        sys.exit(1)
+    
+    console.print(f"Product: {product_spec['name']}", style="cyan")
+    console.print(f"Category: {product_spec['category']}", style="dim")
+    console.print(f"Sizes: {len(product_spec['print_areas'])}", style="dim")
+    console.print(f"Coverage: {product_spec['coverage_type']}\n", style="dim")
+    
+    image_path = Path(image_path)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create product subfolder
+    product_dir = output_dir / product
+    product_dir.mkdir(parents=True, exist_ok=True)
+    
+    console.print(f"Processing: {image_path.name}\n", style="yellow")
+    
+    renderer = RenderEngine()
+    generated_files = []
+    
+    # Generate crops for each size
+    for idx, print_area in enumerate(product_spec['print_areas'], 1):
+        size_name = print_area['name']
+        width = print_area['width']
+        height = print_area['height']
+        
+        console.print(f"[{idx}/{len(product_spec['print_areas'])}] Cropping {size_name} ({width}x{height})...", end="")
+        
+        try:
+            rendered = renderer.render_image(
+                source_path=image_path,
+                target_width=width,
+                target_height=height,
+                mode="cover",
+                dpi=product_spec['dpi'],
+                transparent_background=(product_spec['coverage_type'] == "transparent"),
+            )
+            
+            # Save
+            safe_name = size_name.replace("/", "-").replace(" ", "_")
+            output_file = product_dir / f"{safe_name}.png"
+            rendered.save(output_file, format="PNG", dpi=(product_spec['dpi'], product_spec['dpi']))
+            
+            generated_files.append(output_file)
+            console.print(f" ✓", style="green")
+            
+        except Exception as e:
+            console.print(f" ✗ {e}", style="red")
+    
+    console.print(f"\n✅ Generated {len(generated_files)} crops", style="green bold")
+    console.print(f"   Output directory: {product_dir}\n", style="dim")
+    
+    # Show file list
+    console.print("📁 Generated files:", style="cyan")
+    for f in generated_files:
+        file_size = f.stat().st_size / 1024
+        console.print(f"   • {f.name} ({file_size:.1f} KB)", style="dim")
+    
+    console.print("\n💡 Next steps:", style="green bold")
+    console.print(f"   1. Review the crops in: {product_dir}")
+    console.print(f"   2. If OK, upload to Printify with blueprint_id={product_spec['blueprint_id']}")
+    console.print(f"   3. Or process more images: artomate crop-for-product <next_image> --product {product}\n")
+
+
+@cli.command()
+@click.argument("image_dir", type=click.Path(exists=True))
+@click.option("--output-dir", "-o", default="crops_output", help="Output directory for crops")
+@click.option("--families", "-f", multiple=True, help="Specific product families to process (e.g., poster, tshirt)")
+@click.option("--preview", is_flag=True, help="Show what would be processed without actually processing")
+def crop_images(image_dir: str, output_dir: str, families: tuple, preview: bool):
+    """Crop multiple images for all product variants.
+    
+    Takes a directory of images (e.g., 12 calendar images) and creates crops
+    for all product families and their variants.
+    
+    Example:
+        artomate crop-images ./calendar_images --output-dir ./crops
+        artomate crop-images ./calendar_images -f poster -f canvas
+        artomate crop-images ./calendar_images --preview
+    """
+    from artomate.workers.batch_crop_processor import BatchCropProcessor
+    from pathlib import Path
+    import glob
+
+    processor = BatchCropProcessor()
+    
+    # Get all images from directory
+    image_dir_path = Path(image_dir)
+    image_patterns = ["*.png", "*.jpg", "*.jpeg", "*.webp"]
+    image_paths = []
+    
+    for pattern in image_patterns:
+        image_paths.extend(image_dir_path.glob(pattern))
+    
+    image_paths = sorted(image_paths)
+    
+    if not image_paths:
+        console.print(f"❌ No images found in {image_dir}", style="red")
+        sys.exit(1)
+    
+    console.print(f"\n📁 Found {len(image_paths)} image(s) in {image_dir}", style="cyan")
+    for img in image_paths:
+        console.print(f"   • {img.name}", style="dim")
+    
+    # Convert families tuple to list
+    families_list = list(families) if families else None
+    
+    # Preview mode
+    if preview:
+        console.print("\n🔍 PREVIEW MODE\n", style="yellow bold")
+        summary = processor.get_processing_summary(product_families=families_list)
+        
+        console.print(f"📦 Product families: {summary['total_families']}", style="cyan")
+        console.print(f"📐 Total variants per image: {summary['total_variants']}", style="cyan")
+        console.print(f"🖼️  Total crops (all images): {len(image_paths) * summary['total_variants']}", style="green bold")
+        
+        console.print("\n📋 Families to process:\n", style="cyan")
+        
+        table = Table()
+        table.add_column("Family", style="cyan")
+        table.add_column("Name", style="white")
+        table.add_column("Category", style="yellow")
+        table.add_column("Coverage", style="magenta")
+        table.add_column("Variants", style="green")
+        
+        for fam in summary['families']:
+            table.add_row(
+                fam['family_id'],
+                fam['name'],
+                fam['category'],
+                fam['coverage_type'],
+                str(fam['variants'])
+            )
+        
+        console.print(table)
+        console.print("\n💡 Run without --preview to actually process the images\n")
+        return
+    
+    # Actual processing
+    console.print(f"\n✨ Processing images...\n", style="green bold")
+    
+    try:
+        results = processor.process_calendar_images(
+            image_paths=image_paths,
+            output_dir=Path(output_dir),
+            product_families=families_list,
+        )
+        
+        console.print(f"\n✅ SUCCESS!", style="green bold")
+        console.print(f"   Images processed: {results['images_processed']}/{len(image_paths)}")
+        console.print(f"   Total crops generated: {results['total_crops']}")
+        console.print(f"   Output directory: {output_dir}")
+        
+        if results['errors']:
+            console.print(f"\n⚠️  Errors: {len(results['errors'])}", style="yellow")
+            for error in results['errors']:
+                console.print(f"   • {error}", style="dim")
+        
+    except Exception as e:
+        console.print(f"\n❌ Error: {e}", style="red")
+        logger.exception("Error in batch crop processing")
+        sys.exit(1)
+
+
+# ============================================================================
 # Configuration Commands
 # ============================================================================
 

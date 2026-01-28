@@ -14,6 +14,7 @@ from artomate.db.database import get_db
 from artomate.db.models import Asset, AssetType, Job
 from artomate.utils.retry import RetryConfig
 from artomate.utils.logger import get_logger_with_context
+from artomate.utils.circuit_breaker import openai_breaker, CircuitBreakerError
 
 
 class ImageGenerator:
@@ -96,6 +97,7 @@ class ImageGenerator:
 
         return prompt
 
+    @openai_breaker
     @RetryConfig.for_openai()
     def generate_with_dalle(
         self,
@@ -117,6 +119,7 @@ class ImageGenerator:
 
         Raises:
             RuntimeError: If generation fails
+            CircuitBreakerError: If circuit is open
         """
         if not self.openai_client:
             raise RuntimeError("OpenAI API key not configured")
@@ -149,8 +152,12 @@ class ImageGenerator:
 
             return results
 
+        except CircuitBreakerError:
+            # Circuit is open, don't retry
+            logger.error("❌ Circuit breaker OPEN - OpenAI service unavailable")
+            raise
         except Exception as e:
-            logger.error(f"❌ DALL-E 3 generation failed: {e}")
+            logger.error(f"❌ DALL-E 3 generation failed: {e}", exc_info=True)
             raise RuntimeError(f"Image generation failed: {e}")
 
     @RetryConfig.for_network()

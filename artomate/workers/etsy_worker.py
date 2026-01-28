@@ -9,20 +9,31 @@ from artomate.core.config import Config, get_config
 from artomate.db.database import get_db
 from artomate.db.models import Asset, Job, MarketplaceListing, MarketplaceType, Product
 from artomate.integrations.etsy_client import EtsyClient
+from artomate.workers.seo_text_generator import SEOTextGenerator
 
 
 class EtsyWorker:
     """Creates and manages Etsy listings."""
 
-    def __init__(self, config: Optional[Config] = None):
+    def __init__(self, config: Optional[Config] = None, use_ai_seo: bool = True):
         """Initialize Etsy worker.
 
         Args:
             config: Application configuration
+            use_ai_seo: If True, use AI-powered SEO text generation (requires OpenAI API key)
         """
         self.config = config or get_config()
         self.db = get_db()
         self.etsy = EtsyClient()
+        self.use_ai_seo = use_ai_seo and self.config.openai_api_key
+        
+        if self.use_ai_seo:
+            self.seo_generator = SEOTextGenerator(config)
+            logger.info("✓ AI-powered SEO text generation enabled for Etsy")
+        else:
+            self.seo_generator = None
+            if use_ai_seo:
+                logger.warning("Etsy AI SEO disabled: OPENAI_API_KEY not set")
 
     def create_listing_for_product(
         self,
@@ -131,6 +142,21 @@ class EtsyWorker:
         Returns:
             Optimized title (max 140 chars)
         """
+        # Use AI-powered SEO if available
+        if self.use_ai_seo and self.seo_generator:
+            try:
+                # Extract product name from base title
+                product_name = base_title.split("|")[-1].strip() if "|" in base_title else "Product"
+                return self.seo_generator.generate_product_title(
+                    job=job,
+                    product_name=product_name,
+                    platform="etsy",
+                    max_length=140,
+                )
+            except Exception as e:
+                logger.warning(f"AI title optimization failed: {e}, using fallback")
+        
+        # Fallback to rule-based optimization
         # Etsy SEO best practices:
         # - Front-load keywords
         # - Include key terms: theme, style, product type
@@ -179,6 +205,18 @@ class EtsyWorker:
         Returns:
             Optimized description
         """
+        # Use AI-powered SEO if available
+        if self.use_ai_seo and self.seo_generator:
+            try:
+                return self.seo_generator.generate_product_description(
+                    job=job,
+                    product_name="product",
+                    platform="etsy",
+                )
+            except Exception as e:
+                logger.warning(f"AI description optimization failed: {e}, using fallback")
+        
+        # Fallback to template-based description
         parts = [
             "✨ ABOUT THIS ITEM",
             "",
@@ -218,6 +256,19 @@ class EtsyWorker:
         Returns:
             Optimized tags (max 13)
         """
+        # Use AI-powered SEO if available
+        if self.use_ai_seo and self.seo_generator:
+            try:
+                return self.seo_generator.generate_product_tags(
+                    job=job,
+                    product_name="product",
+                    platform="etsy",
+                    max_tags=13,
+                )
+            except Exception as e:
+                logger.warning(f"AI tags optimization failed: {e}, using fallback")
+        
+        # Fallback to rule-based tags
         tags = set()
 
         # Priority tags

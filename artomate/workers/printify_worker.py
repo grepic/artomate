@@ -11,6 +11,7 @@ from artomate.integrations.printify_client import PrintifyClient
 from artomate.workers.render_engine import RenderEngine
 from artomate.workers.printify_product_catalog import PRINTIFY_PRODUCTS, get_all_product_ids
 from artomate.workers.printify_product_families import PRODUCT_FAMILIES, get_all_family_ids
+from artomate.workers.seo_text_generator import SEOTextGenerator
 
 
 class PrintifyWorker:
@@ -19,16 +20,35 @@ class PrintifyWorker:
     # Use comprehensive product catalog
     BLUEPRINT_SPECS = PRINTIFY_PRODUCTS
 
-    def __init__(self, config: Optional[Config] = None):
+    def __init__(self, config: Optional[Config] = None, use_ai_seo: bool = True):
         """Initialize Printify worker.
 
         Args:
             config: Application configuration
+            use_ai_seo: If True, use AI-powered SEO text generation (requires OpenAI API key)
         """
         self.config = config or get_config()
         self.db = get_db()
         self.printify = PrintifyClient()
         self.renderer = RenderEngine(config)
+        self.use_ai_seo = use_ai_seo and self.config.openai_api_key
+        
+        if self.use_ai_seo:
+            self.seo_generator = SEOTextGenerator(config)
+            logger.info("✓ AI-powered SEO text generation enabled")
+        else:
+            self.seo_generator = None
+            if use_ai_seo:
+                logger.warning("AI SEO disabled: OPENAI_API_KEY not set")
+        self.use_ai_seo = use_ai_seo and self.config.openai_api_key
+        
+        if self.use_ai_seo:
+            self.seo_generator = SEOTextGenerator(config)
+            logger.info("✓ AI-powered SEO text generation enabled")
+        else:
+            self.seo_generator = None
+            if use_ai_seo:
+                logger.warning("AI SEO disabled: OPENAI_API_KEY not set")
 
     def calculate_price(self, base_cost: float) -> float:
         """Calculate selling price with markup.
@@ -602,7 +622,18 @@ class PrintifyWorker:
         Returns:
             SEO title
         """
-        # Use template from config
+        # Use AI-powered SEO if available
+        if self.use_ai_seo and self.seo_generator:
+            try:
+                return self.seo_generator.generate_product_title(
+                    job=job,
+                    product_name=product_name,
+                    platform="printify",
+                )
+            except Exception as e:
+                logger.warning(f"AI title generation failed: {e}, using fallback")
+        
+        # Fallback to template-based title
         template = self.config.seo_title_template
 
         title = template.format(
@@ -630,6 +661,18 @@ class PrintifyWorker:
         Returns:
             Product description
         """
+        # Use AI-powered SEO if available
+        if self.use_ai_seo and self.seo_generator:
+            try:
+                return self.seo_generator.generate_product_description(
+                    job=job,
+                    product_name=product_name,
+                    platform="printify",
+                )
+            except Exception as e:
+                logger.warning(f"AI description generation failed: {e}, using fallback")
+        
+        # Fallback to simple description
         parts = [
             f"Beautiful {job.theme} design in {job.style or 'modern'} style.",
             "",
@@ -655,6 +698,19 @@ class PrintifyWorker:
         Returns:
             List of tags (limited by config)
         """
+        # Use AI-powered SEO if available
+        if self.use_ai_seo and self.seo_generator:
+            try:
+                return self.seo_generator.generate_product_tags(
+                    job=job,
+                    product_name="product",
+                    platform="printify",
+                    max_tags=self.config.seo_max_tags,
+                )
+            except Exception as e:
+                logger.warning(f"AI tags generation failed: {e}, using fallback")
+        
+        # Fallback to simple tags
         tags = []
 
         # Add theme

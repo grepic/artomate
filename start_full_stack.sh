@@ -4,7 +4,7 @@ echo ""
 
 # Start API in background
 echo "Starting API server..."
-uvicorn artomate.api.main:app --host 0.0.0.0 --port 8000 > logs/api.log 2>&1 &
+/workspaces/artomate/.venv/bin/uvicorn artomate.api.main:app --host 0.0.0.0 --port 8000 > logs/api.log 2>&1 &
 API_PID=$!
 echo "  ✓ API running (PID: $API_PID)"
 
@@ -13,7 +13,7 @@ sleep 2
 
 # Start UI in background
 echo "Starting UI..."
-streamlit run ui/streamlit_app.py --server.port 8501 > logs/ui.log 2>&1 &
+/workspaces/artomate/.venv/bin/streamlit run ui/streamlit_app.py --server.port 8501 > logs/ui.log 2>&1 &
 UI_PID=$!
 echo "  ✓ UI running (PID: $UI_PID)"
 

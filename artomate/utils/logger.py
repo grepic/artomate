@@ -1,12 +1,17 @@
 """Centralized logging configuration with rotation and structured output."""
 
 import sys
+import uuid
 from pathlib import Path
 from typing import Optional
+from contextvars import ContextVar
 
 from loguru import logger
 
 from artomate.core.config import Config
+
+# Context variable for correlation ID tracking across threads/async
+correlation_id_var: ContextVar[Optional[str]] = ContextVar('correlation_id', default=None)
 
 
 def setup_logging(config: Optional[Config] = None) -> None:
@@ -54,7 +59,8 @@ def setup_logging(config: Optional[Config] = None) -> None:
             "{time:YYYY-MM-DD HH:mm:ss.SSS} | "
             "{level: <8} | "
             "{name}:{function}:{line} | "
-            "{extra[job_id]!s:>6} | "
+            "job_id={extra[job_id]!s:>6} | "
+            "correlation_id={extra[correlation_id]!s} | "
             "{message}"
         ),
         level="DEBUG",
@@ -74,7 +80,8 @@ def setup_logging(config: Optional[Config] = None) -> None:
             "{time:YYYY-MM-DD HH:mm:ss.SSS} | "
             "{level: <8} | "
             "{name}:{function}:{line} | "
-            "{extra[job_id]!s:>6} | "
+            "job_id={extra[job_id]!s:>6} | "
+            "correlation_id={extra[correlation_id]!s} | "
             "{message}"
         ),
         level="ERROR",
@@ -83,7 +90,7 @@ def setup_logging(config: Optional[Config] = None) -> None:
         diagnose=True,
     )
 
-    logger.configure(extra={"job_id": "N/A"})
+    logger.configure(extra={"job_id": "N/A", "correlation_id": "N/A"})
 
     logger.info(
         f"Logging configured: level={config.log_level}, "
@@ -91,16 +98,17 @@ def setup_logging(config: Optional[Config] = None) -> None:
     )
 
 
-def get_logger_with_context(job_id: Optional[int] = None, **kwargs):
-    """Get logger with context (job_id, etc.).
+def get_logger_with_context(job_id: Optional[int] = None, correlation_id: Optional[str] = None, **kwargs):
+    """Get logger with context (job_id, correlation_id, etc.).
 
     Usage:
-        log = get_logger_with_context(job_id=123)
+        log = get_logger_with_context(job_id=123, correlation_id="abc-123")
         log.info("Processing job")
-        # Output: ... | job_id=123 | Processing job
+        # Output: ... | job_id=123 | correlation_id=abc-123 | Processing job
 
     Args:
         job_id: Job ID for correlation
+        correlation_id: Unique ID for tracking request across services
         **kwargs: Additional context fields
 
     Returns:
@@ -111,9 +119,46 @@ def get_logger_with_context(job_id: Optional[int] = None, **kwargs):
     if job_id is not None:
         context["job_id"] = job_id
 
+    # Get correlation_id from context var if not provided
+    if correlation_id is None:
+        correlation_id = correlation_id_var.get()
+    
+    if correlation_id is not None:
+        context["correlation_id"] = correlation_id
+
     context.update(kwargs)
 
     return logger.bind(**context)
+
+
+def set_correlation_id(correlation_id: Optional[str] = None) -> str:
+    """Set correlation ID for current context.
+    
+    Args:
+        correlation_id: Correlation ID to set, or None to generate new one
+        
+    Returns:
+        The correlation ID that was set
+    """
+    if correlation_id is None:
+        correlation_id = str(uuid.uuid4())
+    
+    correlation_id_var.set(correlation_id)
+    return correlation_id
+
+
+def get_correlation_id() -> Optional[str]:
+    """Get current correlation ID from context.
+    
+    Returns:
+        Current correlation ID or None
+    """
+    return correlation_id_var.get()
+
+
+def clear_correlation_id() -> None:
+    """Clear correlation ID from current context."""
+    correlation_id_var.set(None)
 
 
 def log_function_call(func):

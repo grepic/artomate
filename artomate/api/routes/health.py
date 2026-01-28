@@ -11,6 +11,8 @@ from artomate.core.config import get_config
 from artomate.db.database import get_db
 from artomate.workers.queue import get_queue
 from artomate.integrations.telegram_notifier import get_telegram_notifier
+from artomate.utils.monitoring import HealthChecker, MetricsCollector, check_disk_space, check_memory, check_api_keys
+from artomate.utils.rate_limiter import RateLimitManager
 
 router = APIRouter()
 
@@ -183,4 +185,64 @@ async def liveness_check() -> Dict[str, str]:
 
     Returns 200 if service is alive (even if not fully functional).
     """
+    return {"status": "alive", "timestamp": datetime.utcnow().isoformat()}
+
+
+@router.get("/detailed")
+async def detailed_health_check() -> Dict[str, Any]:
+    """Detailed health check with system metrics."""
+    config = get_config()
+    
+    # Run all health checks
+    result = {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "checks": {}
+    }
+    
+    # Memory check
+    memory_check = check_memory()
+    result["checks"]["memory"] = memory_check.to_dict()
+    if memory_check.status != "healthy":
+        result["status"] = memory_check.status
+    
+    # Disk space check
+    disk_check = check_disk_space()
+    result["checks"]["disk_space"] = disk_check.to_dict()
+    if disk_check.status != "healthy":
+        result["status"] = disk_check.status
+    
+    # API keys check
+    api_keys_check = check_api_keys(config)
+    result["checks"]["api_keys"] = api_keys_check.to_dict()
+    if api_keys_check.status != "healthy":
+        result["status"] = api_keys_check.status
+    
+    # Rate limiter stats
+    try:
+        rate_manager = RateLimitManager()
+        result["checks"]["rate_limiters"] = {
+            "status": "healthy",
+            "stats": rate_manager.get_all_stats()
+        }
+    except Exception as e:
+        result["checks"]["rate_limiters"] = {
+            "status": "error",
+            "message": str(e)
+        }
+    
+    return result
+
+
+@router.get("/metrics/summary")
+async def metrics_summary() -> Dict[str, Any]:
+    """Get metrics summary."""
+    try:
+        metrics = MetricsCollector()
+        return metrics.get_metrics()
+    except Exception as e:
+        return {
+            "error": str(e),
+            "status": "error"
+        }
     return {"status": "alive", "timestamp": datetime.utcnow().isoformat()}
